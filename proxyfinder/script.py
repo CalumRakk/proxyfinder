@@ -5,9 +5,12 @@ import csv
 import logging
 import sys
 from pathlib import Path
+import signal
+from proxyfinder.utils import signal_handler
 
 
 def main():
+    signal.signal(signal.SIGINT, signal_handler)
     parser = argparse.ArgumentParser(description="Encuentra y verifica proxies HTTP.")
     parser.add_argument(
         "action",

@@ -2,11 +2,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 import time
 from bs4 import BeautifulSoup, Tag
-from proxyfinder.utils import (
-    get_user_agent,
-    REGEX_GET_PROXY,
-    TEST_URLS,
-)
+from proxyfinder.utils import get_user_agent, REGEX_GET_PROXY, TEST_URLS, STOP_FLAG
 from typing import Union
 import json
 import importlib.resources
@@ -14,6 +10,7 @@ from proxyfinder.database import Proxy
 import logging
 import random
 from datetime import datetime
+import threading
 
 
 class ProxyFinder:
@@ -125,6 +122,8 @@ class ProxyFinder:
         :param proxy: dirección del proxy (ip:puerto)
         :return: tupla (proxy, tiempo_respuesta, funciona) o None si hay error
         """
+        if STOP_FLAG.is_set():
+            return
         logging.debug(f"Verificando proxy: {proxy.proxy}")
         test_url = random.choice(TEST_URLS)
         proxies = {
@@ -184,4 +183,4 @@ class ProxyFinder:
                         to_save = []
 
             except Exception as e:
-                logging.error(f"Error al procesar el proxy: {str(e)}")
+                logging.debug(f"Error al procesar el proxy: {str(e)}")

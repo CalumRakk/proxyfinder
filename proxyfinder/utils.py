@@ -1,5 +1,5 @@
 from pathlib import Path
-import csv
+import threading
 import random
 import os
 import re
@@ -14,6 +14,7 @@ PROXIES_OUT_DIR = Path(os.getenv("APPDATA") or Path.home() / ".config") / "proxy
 PROXIES_OUT_DIR.mkdir(parents=True, exist_ok=True)
 REGEX_GET_PROXY = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5})")
 TEST_URLS = ["https://www.example.com", "https://httpbin.org/ip"]
+STOP_FLAG = threading.Event()
 
 
 def handler_stream(formatter) -> "logging.StreamHandler":
@@ -40,3 +41,9 @@ def logger_formatter() -> "logging.Formatter":
 
 def get_user_agent() -> str:
     return random.choice(USER_AGENTS)
+
+
+def signal_handler(sig, frame):
+    """Maneja la señal SIGINT (Ctrl+C)."""
+    logging.info("Señal SIGINT recibida. Deteniendo...")
+    STOP_FLAG.set()
