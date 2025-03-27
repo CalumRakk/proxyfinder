@@ -1,59 +1,59 @@
 # ProxyFinder
 
-Un script en Python para encontrar y verificar proxies HTTP.
+A Python script to find and verify HTTP proxies.
 
-## Instalación
+## Installation
 
-Instale el paquete y sus dependencias usando `pip`:
+Install the package and its dependencies using `pip`:
 
 ```bash
 pip install git+https://github.com/CalumRakk/proxyfinder
 ```
 
-## Uso
+## Usage
 
-El script se puede ejecutar desde la línea de comandos utilizando el comando `proxyfinder` seguido de la acción que deseas realizar y las opciones correspondientes
+The script can be executed from the command line using the `proxyfinder` command followed by the action you want to perform and the corresponding options.
 
-### **`check`:** Busca y verifica proxies
+### **`check`:** Finds and verifies proxies
 
 ```bash
 proxyfinder check
 ```
 
-Este comando no requiere argumentos adicionales.
+This command does not require additional arguments.
 
-### **`export`:** Exporta los proxies a un archivo CSV.
+### **`export`:** Exports the proxies to a CSV file.
 
 ```bash
-proxyfinder export <ubicacion> [--all]
+proxyfinder export <location> [--all]
 ```
 
-- `<ubicacion>` (opcional): La ubicación del archivo CSV al que se exportarán los proxies (por ejemplo, `proxies.csv` o `mi_directorio/proxies.csv`). Si no se especifica, se utilizará el nombre de archivo `proxies.csv` por defecto y se guardará en el directorio de trabajo actual.
+- `<location>` (optional): The location of the CSV file to which the proxies will be exported (e.g., `proxies.csv` or `my_directory/proxies.csv`). If not specified, the default filename `proxies.csv` will be used and saved in the current working directory.
 
-- `--all` (opcional): Un flag para exportar _todos_ los proxies de la base de datos, independientemente de si están funcionando o no. Si no se especifica, solo se exportarán los proxies que se hayan verificado y que se considere que están funcionando.
+- `--all` (optional): A flag to export _all_ proxies from the database, regardless of whether they are working or not. If not specified, only proxies that have been verified and are considered to be working will be exported.
 
-## Ejemplos de uso:
+## Usage examples:
 
-- **Verificar proxies:**
+- **Verify proxies:**
 
   ```bash
   proxyfinder check
   ```
 
-  Este comando iniciará el proceso de búsqueda y verificación de proxies, actualizando la base de datos con los resultados.
+  This command will start the process of finding and verifying proxies, updating the database with the results.
 
-- **Exportar proxies funcionales a una ubicación específica (`mi_archivo.csv`):**
-
-  ```bash
-  proxyfinder export mi_archivo.csv
-  ```
-
-  Este comando exportará los proxies funcionales al archivo `mi_archivo.csv` en el directorio actual.
-
-- **Exportar _todos_ los proxies a una ubicación específica (`todos_los_proxies.csv`):**
+- **Export functional proxies to a specific location (`my_file.csv`):**
 
   ```bash
-  proxyfinder export todos_los_proxies.csv --all
+  proxyfinder export my_file.csv
   ```
 
-  Este comando exportará _todos_ los proxies de la base de datos (incluyendo los que no funcionan) al archivo `todos_los_proxies.csv` en el directorio actual.
+  This command will export the functional proxies to the `my_file.csv` file in the current directory.
+
+- **Export _all_ proxies to a specific location (`all_proxies.csv`):**
+
+  ```bash
+  proxyfinder export all_proxies.csv --all
+  ```
+
+  This command will export _all_ proxies from the database (including non-working ones) to the `all_proxies.csv` file in the current directory.

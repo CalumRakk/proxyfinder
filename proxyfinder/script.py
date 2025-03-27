@@ -11,24 +11,24 @@ from proxyfinder.utils import signal_handler
 
 
 def config_args():
-    parser = argparse.ArgumentParser(description="Encuentra y verifica proxies HTTP.")
+    parser = argparse.ArgumentParser(description="Finds and verifies HTTP proxies.")
     parser.add_argument(
         "action",
         nargs="?",
         choices=["check", "export"],
         default="check",
-        help="Acción a realizar: 'check' para verificar proxies, 'export' para exportar proxies a un archivo CSV.",
+        help="Action to perform: 'check' to verify proxies, 'export' to export proxies to a CSV file.",
     )
     parser.add_argument(
         "output",
         nargs="?",
         default="proxies.csv",
-        help="Ubicación del archivo CSV para exportar los proxies (por defecto: proxies.csv).",
+        help="Location of the CSV file to export proxies to (default: proxies.csv).",
     )
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Exportar todos los proxies (por defecto: solo los proxies funcionales).",
+        help="Export all proxies (default: only working proxies).",
     )
     return parser.parse_args()
 
@@ -38,6 +38,7 @@ def ckeck_proxies():
     proxies = Proxy.select().where(Proxy.is_checked == False)
 
     if not proxies.exists():
+        logging.info("No proxies found, getting proxies from multiple sources.")
         nuevos_proxies = pf.get_proxies_from_multiple_sources()
         if not Proxy.save_proxies(nuevos_proxies):
             return
@@ -47,7 +48,7 @@ def ckeck_proxies():
 
 
 def export_proxies(output, all_proxies):
-    logging.info(f"Exportando proxies a {output}, incluir todos: {all_proxies}")
+    logging.info(f"Exporting proxies to {output}, including all: {all_proxies}")
     proxies = (
         Proxy.select()
         if all_proxies
@@ -83,9 +84,9 @@ def export_proxies(output, all_proxies):
                         "note": proxy.note,
                     }
                 )
-        logging.info(f"Proxies exportados exitosamente a {output}")
+        logging.info(f"Proxies successfully exported to {output}")
     except Exception as e:
-        logging.error(f"Error al exportar proxies: {e}")
+        logging.error(f"Error exporting proxies: {e}")
 
 
 def main():
@@ -98,9 +99,5 @@ def main():
         elif args.action == "export":
             export_proxies(args.output, args.all)
     except KeyboardInterrupt:
-        logging.info("Proceso interrumpido por el usuario.")
+        logging.info("Process interrupted by user.")
         sys.exit(0)
-
-
-if __name__ == "__main__":
-    main()

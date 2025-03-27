@@ -45,5 +45,5 @@ def get_user_agent() -> str:
 
 def signal_handler(sig, frame):
     """Maneja la señal SIGINT (Ctrl+C)."""
-    logging.info("Señal SIGINT recibida. Deteniendo...")
+    logging.info("SIGINT signal received. Stopping...")
     STOP_FLAG.set()

@@ -16,6 +16,6 @@ logger = logging.getLogger(__name__)
 logger.info(
     """
     =====================
-    Incio del programa
+    Start of the program
     ====================="""
 )
