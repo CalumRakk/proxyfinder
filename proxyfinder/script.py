@@ -1,5 +1,4 @@
 from proxyfinder.proxyfinder import ProxyFinder
-from proxyfinder.utils import save_proxies, load_proxies
 from proxyfinder.database import Proxy
 
 
@@ -13,7 +12,6 @@ def main():
             proxies = Proxy.select().where(Proxy.is_checked == False)
         else:
             return
-
     pf.check_proxies(proxies)
 
 

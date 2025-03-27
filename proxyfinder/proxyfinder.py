@@ -2,12 +2,18 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 import time
 from bs4 import BeautifulSoup, Tag
-from proxyfinder.utils import get_user_agent, REGEX_GET_PROXY
+from proxyfinder.utils import (
+    get_user_agent,
+    REGEX_GET_PROXY,
+    TEST_URLS,
+)
 from typing import Union
 import json
-from typing import cast
 import importlib.resources
 from proxyfinder.database import Proxy
+import logging
+import random
+from datetime import datetime
 
 
 class ProxyFinder:
@@ -15,6 +21,7 @@ class ProxyFinder:
         self.timeout = 5
         self.max_workers = 50
         self.session = requests.Session()
+        logging.info("ProxyFinder inicializado.")
 
     def fetch_proxies_from_source(
         self, url: str, parser_type: str = "table"
@@ -25,10 +32,12 @@ class ProxyFinder:
         :param parser_type: 'table' para tablas HTML, 'plain' para texto plano
         :return: lista de proxies (ip:puerto)
         """
+        logging.info(f"Obteniendo proxies de la fuente: {url} (tipo: {parser_type})")
         try:
             headers = {"User-Agent": get_user_agent()}
             response = requests.get(url, headers=headers, timeout=self.timeout)
             response.raise_for_status()
+            logging.debug(f"Respuesta de {url}: {response.status_code}")
 
             proxies = []
 
@@ -56,10 +65,11 @@ class ProxyFinder:
                 match = REGEX_GET_PROXY.match(proxy)
                 if match:
                     proxies_cleaned.append(match.group())
+            logging.info(f"Obtenidos {len(proxies_cleaned)} proxies limpios de {url}")
             return proxies_cleaned
 
         except Exception as e:
-            print(f"Error al obtener proxies de {url}: {str(e)}")
+            logging.error(f"Error al obtener proxies de {url}: {str(e)}")
             return []
 
     def get_proxies_from_multiple_sources(self) -> list[str]:
@@ -75,9 +85,17 @@ class ProxyFinder:
             ...
         ]
         """
-
-        with importlib.resources.open_text("proxyfinder", "sources.json") as f:
-            sources = json.load(f)
+        logging.info("Obteniendo proxies de múltiples fuentes.")
+        try:
+            with importlib.resources.open_text("proxyfinder", "sources.json") as f:
+                sources = json.load(f)
+            logging.debug(f"Fuentes cargadas: {sources}")
+        except FileNotFoundError as e:
+            logging.error(f"No se pudo encontrar el archivo sources.json: {e}")
+            return []
+        except json.JSONDecodeError as e:
+            logging.error(f"Error al decodificar JSON en sources.json: {e}")
+            return []
 
         all_proxies = []
 
@@ -92,13 +110,13 @@ class ProxyFinder:
                 try:
                     proxies = future.result()
                     all_proxies.extend(proxies)
-                    print(f"Obtenidos {len(proxies)} proxies de {source['url']}")
+                    logging.info(f"Obtenidos {len(proxies)} proxies de {source['url']}")
                 except Exception as e:
-                    print(f"Error al procesar fuente: {str(e)}")
+                    logging.error(f"Error al procesar fuente: {str(e)}")
 
         # Eliminar duplicados
         unique_proxies = list(set(all_proxies))
-        print(f"\nTotal de proxies únicos obtenidos: {len(unique_proxies)}")
+        logging.info(f"Total de proxies únicos obtenidos: {len(unique_proxies)}")
         return unique_proxies
 
     def check_proxy(self, proxy: Proxy) -> Union[Proxy, None]:
@@ -107,7 +125,8 @@ class ProxyFinder:
         :param proxy: dirección del proxy (ip:puerto)
         :return: tupla (proxy, tiempo_respuesta, funciona) o None si hay error
         """
-        test_url = "http://www.google.com"  # URL para probar el proxy
+        logging.debug(f"Verificando proxy: {proxy.proxy}")
+        test_url = random.choice(TEST_URLS)
         proxies = {
             "http": f"http://{proxy.proxy}",
             "https": f"http://{proxy.proxy}",
@@ -116,39 +135,58 @@ class ProxyFinder:
         try:
             headers = {"User-Agent": get_user_agent()}
             start_time = time.time()
-            response = self.session.get(
+            proxy.is_checked = True  # type: ignore
+            proxy.updated_at = datetime.now()
+            response = self.session.head(
                 test_url, proxies=proxies, headers=headers, timeout=self.timeout
             )
             end_time = time.time()
-            proxy.is_checked = True  # type: ignore
-            if response.status_code == 200:
+            response.raise_for_status()
+            if response.status_code == 302:
                 proxy.latency = round((end_time - start_time) * 1000, 2)  # type: ignore
                 proxy.is_working = True  # type: ignore
-                return proxy
-            else:
-                proxy.is_working = False  # type: ignore
+                logging.info(f"Proxy {proxy.proxy} funciona ({proxy.latency} ms)")
                 return proxy
 
-        except requests.exceptions.RequestException:
-            pass
+            proxy.is_working = False  # type: ignore
+            logging.debug(
+                f"Proxy {proxy.proxy} no funciona (código de estado: {response.status_code})"
+            )
+            return proxy
 
-        return None
+        except requests.exceptions.RequestException as e:
+            proxy.is_working = False  # type: ignore
+            logging.debug(f"Proxy {proxy.proxy} falló la conexión: {e}")
+            return proxy
 
     def check_proxies(self, proxies: list[Proxy]):
+        logging.info(f"Verificando {len(proxies)} proxies.")
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
             for proxy in proxies:
                 futures.append(executor.submit(self.check_proxy, proxy))
 
-            for future in futures:
-                try:
+            try:
+                cout_futures = len(futures)
+                to_save = []
+                for index, future in enumerate(futures, 1):
+                    logging.info(f"Procesando proxy {index}/{cout_futures}")
                     proxy = future.result()
-                    if proxy is not None:
-                        if proxy.is_working:
-                            proxy.is_checked = True
-                            print(
-                                f"Proxy {proxy.proxy} funcionando ({proxy.latency} ms)"
-                            )
-                        proxy.save()
-                except Exception as e:
-                    print(f"Error al procesar : {str(e)}")
+                    to_save.append(proxy)
+                    if index % 10 == 0:
+                        Proxy.bulk_update(
+                            to_save,
+                            [
+                                "is_checked",
+                                "is_working",
+                                "latency",
+                                "updated_at",
+                            ],
+                        )
+                        logging.info(
+                            f"Actualizados {len(to_save)} proxies en la base de datos."
+                        )
+                        to_save = []
+
+            except Exception as e:
+                logging.error(f"Error al procesar el proxy: {str(e)}")

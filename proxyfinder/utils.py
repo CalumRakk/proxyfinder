@@ -3,6 +3,7 @@ import csv
 import random
 import os
 import re
+import logging
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -10,24 +11,32 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
 ]
 PROXIES_OUT_DIR = Path(os.getenv("APPDATA") or Path.home() / ".config") / "proxyfinder"
-
+PROXIES_OUT_DIR.mkdir(parents=True, exist_ok=True)
 REGEX_GET_PROXY = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5})")
+TEST_URLS = ["https://www.example.com", "https://httpbin.org/ip"]
+
+
+def handler_stream(formatter) -> "logging.StreamHandler":
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    return console_handler
+
+
+def handler_file(path, formatter) -> "logging.FileHandler":
+    file_handler = logging.FileHandler(str(path), encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    return file_handler
+
+
+def logger_formatter() -> "logging.Formatter":
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+        datefmt="%d-%m-%Y %I:%M:%S %p",
+    )
+    return formatter
 
 
 def get_user_agent() -> str:
     return random.choice(USER_AGENTS)
-
-
-def load_proxies() -> list[str]:
-    path = PROXIES_OUT_DIR / "proxies.txt"
-    if path.exists():
-        return path.read_text().splitlines()
-    return []
-
-
-def save_proxies(proxies: list[str]):
-    PROXIES_OUT_DIR.mkdir(parents=True, exist_ok=True)
-    path = PROXIES_OUT_DIR / "proxies.txt"
-    path.write_text("\n".join(proxies))
-
-    print("Proxies guardados en proxies.txt")
