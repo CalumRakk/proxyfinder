@@ -142,15 +142,10 @@ class ProxyFinder:
             )
             end_time = time.time()
             response.raise_for_status()
-            if response.status_code == 302:
-                proxy.latency = round((end_time - start_time) * 1000, 2)  # type: ignore
-                proxy.is_working = True  # type: ignore
-                logging.info(f"Proxy {proxy.proxy} funciona ({proxy.latency} ms)")
-                return proxy
-
-            proxy.is_working = False  # type: ignore
-            logging.debug(
-                f"Proxy {proxy.proxy} no funciona (código de estado: {response.status_code})"
+            proxy.latency = round((end_time - start_time) * 1000, 2)  # type: ignore
+            proxy.is_working = True  # type: ignore
+            logging.info(
+                f"Proxy {proxy.proxy} funciona ({proxy.latency} ms) estado: {response.status_code}"
             )
             return proxy
 
