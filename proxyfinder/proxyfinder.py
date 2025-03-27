@@ -6,6 +6,7 @@ from .utils import get_user_agent, REGEX_GET_PROXY
 from pathlib import Path
 import json
 import csv
+import importlib.resources
 
 
 class ProxyFinder:
@@ -74,7 +75,9 @@ class ProxyFinder:
         ]
         """
 
-        sources = json.loads(Path("sources.json").read_text())
+        with importlib.resources.open_text("proxyfinder", "sources.json") as f:
+            sources = json.load(f)
+
         all_proxies = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
