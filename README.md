@@ -1,6 +1,6 @@
 # ProxyFinder
 
-Un script en Python para encontrar y verificar proxies
+Un script en Python para encontrar y verificar proxies HTTP.
 
 ## Instalación
 
@@ -12,22 +12,48 @@ pip install git+https://github.com/CalumRakk/proxyfinder
 
 ## Uso
 
-Después de la instalación, ejecuta el script desde la línea de comandos:
+El script se puede ejecutar desde la línea de comandos utilizando el comando `proxyfinder` seguido de la acción que deseas realizar y las opciones correspondientes
+
+### **`check`:** Busca y verifica proxies
 
 ```bash
-proxyfinder
+proxyfinder check
 ```
 
-Esto iniciará el proceso de búsqueda y verificación de proxies. Los resultados se guardarán en la base de datos SQLite (`proxies.db`)
+Este comando no requiere argumentos adicionales.
 
-**Ejemplo de Salida (en la consola):**
+### **`export`:** Exporta los proxies a un archivo CSV.
 
-```
-2024-10-27 10:00:00,000 [INFO] proxyfinder - Obteniendo proxies de la fuente: https://www.sslproxies.org/ (tipo: table)
-2024-10-27 10:00:05,000 [INFO] proxyfinder - Obtenidos 50 proxies limpios de https://www.sslproxies.org/
-2024-10-27 10:00:10,000 [INFO] proxyfinder - Proxy 192.168.1.100:8080 funciona (150.25 ms)
-2024-10-27 10:00:15,000 [INFO] proxyfinder - Actualizados 10 proxies en la base de datos.
-...
+```bash
+proxyfinder export <ubicacion> [--all]
 ```
 
-El archivo `proxyfinder.log` contendrá información de logging más detallada.
+- `<ubicacion>` (opcional): La ubicación del archivo CSV al que se exportarán los proxies (por ejemplo, `proxies.csv` o `mi_directorio/proxies.csv`). Si no se especifica, se utilizará el nombre de archivo `proxies.csv` por defecto y se guardará en el directorio de trabajo actual.
+
+- `--all` (opcional): Un flag para exportar _todos_ los proxies de la base de datos, independientemente de si están funcionando o no. Si no se especifica, solo se exportarán los proxies que se hayan verificado y que se considere que están funcionando.
+
+## Ejemplos de uso:
+
+- **Verificar proxies:**
+
+  ```bash
+  proxyfinder check
+  ```
+
+  Este comando iniciará el proceso de búsqueda y verificación de proxies, actualizando la base de datos con los resultados.
+
+- **Exportar proxies funcionales a una ubicación específica (`mi_archivo.csv`):**
+
+  ```bash
+  proxyfinder export mi_archivo.csv
+  ```
+
+  Este comando exportará los proxies funcionales al archivo `mi_archivo.csv` en el directorio actual.
+
+- **Exportar _todos_ los proxies a una ubicación específica (`todos_los_proxies.csv`):**
+
+  ```bash
+  proxyfinder export todos_los_proxies.csv --all
+  ```
+
+  Este comando exportará _todos_ los proxies de la base de datos (incluyendo los que no funcionan) al archivo `todos_los_proxies.csv` en el directorio actual.
