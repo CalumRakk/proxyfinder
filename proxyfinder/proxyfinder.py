@@ -2,11 +2,12 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 import time
 from bs4 import BeautifulSoup, Tag
-from .utils import get_user_agent, REGEX_GET_PROXY
-from pathlib import Path
+from proxyfinder.utils import get_user_agent, REGEX_GET_PROXY
+from typing import Union
 import json
-import csv
+from typing import cast
 import importlib.resources
+from proxyfinder.database import Proxy
 
 
 class ProxyFinder:
@@ -100,21 +101,16 @@ class ProxyFinder:
         print(f"\nTotal de proxies únicos obtenidos: {len(unique_proxies)}")
         return unique_proxies
 
-    def check_proxy(self, proxy):
+    def check_proxy(self, proxy: Proxy) -> Union[Proxy, None]:
         """
         Verifica si un proxy es funcional
         :param proxy: dirección del proxy (ip:puerto)
         :return: tupla (proxy, tiempo_respuesta, funciona) o None si hay error
         """
         test_url = "http://www.google.com"  # URL para probar el proxy
-        proxy = REGEX_GET_PROXY.match(proxy)
-        if proxy is None:
-            return None
-        proxy = proxy.group()
-
         proxies = {
-            "http": f"http://{proxy}",
-            "https": f"http://{proxy}",
+            "http": f"http://{proxy.proxy}",
+            "https": f"http://{proxy.proxy}",
         }
 
         try:
@@ -124,40 +120,35 @@ class ProxyFinder:
                 test_url, proxies=proxies, headers=headers, timeout=self.timeout
             )
             end_time = time.time()
-
+            proxy.is_checked = True  # type: ignore
             if response.status_code == 200:
-                latency = round((end_time - start_time) * 1000, 2)  # en milisegundos
-                return (proxy, latency, True)
+                proxy.latency = round((end_time - start_time) * 1000, 2)  # type: ignore
+                proxy.is_working = True  # type: ignore
+                return proxy
+            else:
+                proxy.is_working = False  # type: ignore
+                return proxy
 
         except requests.exceptions.RequestException:
             pass
 
         return None
 
-    def check_proxies(self, proxies):
-        path_cvs = Path("valid_proxies.csv")
-        is_new_path_cvs = not path_cvs.exists() or path_cvs.stat().st_size == 0
-        proxies_checked = []
-        with path_cvs.open("a+", newline="", buffering=1) as csvfile:
-            csvwriter = csv.writer(csvfile)
-            if is_new_path_cvs:
-                csvwriter.writerow(["Proxy", "Latencia (ms)", "Funciona"])
-            else:
-                reader = csv.DictReader(csvfile)
-                proxies_checked = [row["Proxy"].strip() for row in reader]
+    def check_proxies(self, proxies: list[Proxy]):
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = []
+            for proxy in proxies:
+                futures.append(executor.submit(self.check_proxy, proxy))
 
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                futures = []
-                for proxy in proxies:
-                    if proxy in proxies_checked:
-                        continue
-                    futures.append(executor.submit(self.check_proxy, proxy))
-
-                for future in futures:
-                    try:
-                        result = future.result()
-                        if result:
-                            csvwriter.writerow(result)
-                            print(f"Proxy {result[0]} funcionando ({result[1]} ms)")
-                    except Exception as e:
-                        print(f"Error al procesar : {str(e)}")
+            for future in futures:
+                try:
+                    proxy = future.result()
+                    if proxy is not None:
+                        if proxy.is_working:
+                            proxy.is_checked = True
+                            print(
+                                f"Proxy {proxy.proxy} funcionando ({proxy.latency} ms)"
+                            )
+                        proxy.save()
+                except Exception as e:
+                    print(f"Error al procesar : {str(e)}")

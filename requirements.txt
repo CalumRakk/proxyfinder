@@ -2,6 +2,8 @@ beautifulsoup4==4.13.3
 certifi==2025.1.31
 charset-normalizer==3.4.1
 idna==3.10
+peewee==3.17.9
+-e git+ssh://git@github.com/CalumRakk/proxyfinder.git@c9e62343f6a9c62161eb6b89df640c75b1eecbbd#egg=proxyfinder
 requests==2.32.3
 soupsieve==2.6
 typing_extensions==4.13.0

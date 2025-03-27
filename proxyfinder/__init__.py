@@ -1,1 +1,0 @@
-from .proxyfinder import ProxyFinder

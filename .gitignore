@@ -2,3 +2,4 @@ docs
 *.csv
 __pycache__/
 .venv/
+proxyfinder.egg-info

@@ -1,13 +1,19 @@
-from proxyfinder import ProxyFinder
+from proxyfinder.proxyfinder import ProxyFinder
 from proxyfinder.utils import save_proxies, load_proxies
+from proxyfinder.database import Proxy
 
 
 def main():
     pf = ProxyFinder()
-    proxies = load_proxies()
-    if not proxies:
-        proxies = pf.get_proxies_from_multiple_sources()
-        save_proxies(proxies)
+    proxies = Proxy.select().where(Proxy.is_checked == False)
+
+    if not proxies.exists():
+        proxyly = pf.get_proxies_from_multiple_sources()
+        if Proxy.save_proxies(proxyly):
+            proxies = Proxy.select().where(Proxy.is_checked == False)
+        else:
+            return
+
     pf.check_proxies(proxies)
 
 
