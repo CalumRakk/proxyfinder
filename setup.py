@@ -10,7 +10,7 @@ setup(
     author_email="leocasti2@gmail.com",
     description=DESCRIPTION,
     packages=find_packages(),
-    install_requires=["beautifulsoup4==4.13.3," "peewee==3.17.9", "requests==2.32.3"],
+    install_requires=["beautifulsoup4==4.13.3", "peewee==3.17.9", "requests==2.32.3"],
     keywords=["python", "proxy", "finder", "checker", "scraper"],
     include_package_data=True,
     entry_points={
