@@ -1,0 +1,22 @@
+[
+  { "url": "https://www.sslproxies.org/", "parser_type": "table" },
+  { "url": "https://free-proxy-list.net/", "parser_type": "table" },
+  { "url": "https://www.us-proxy.org/", "parser_type": "table" },
+  { "url": "https://www.proxy-list.download/HTTP", "parser_type": "table" },
+  {
+    "url": "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all",
+    "parser_type": "plain"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+    "parser_type": "plain"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt",
+    "parser_type": "plain"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/proxy.txt",
+    "parser_type": "plain"
+  }
+]

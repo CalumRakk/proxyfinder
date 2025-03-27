@@ -1,0 +1,4 @@
+docs
+*.csv
+__pycache__/
+.venv/
