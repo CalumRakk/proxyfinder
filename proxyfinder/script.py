@@ -3,7 +3,10 @@ import csv
 import logging
 import signal
 import sys
+from datetime import datetime
 from pathlib import Path
+
+from peewee import fn
 
 from proxyfinder.database import Proxy
 from proxyfinder.proxyfinder import ProxyFinder
@@ -35,7 +38,10 @@ def config_args():
 
 def ckeck_proxies():
     pf = ProxyFinder()
-    proxies = Proxy.select().where(Proxy.is_checked == False)
+    a_day_ago = datetime.now() - Proxy.updated_at  # type: ignore
+    proxies = Proxy.select().where(
+        (Proxy.is_checked == False) | ((Proxy.is_working == True) & (Proxy.updated_at > a_day_ago))  # type: ignore
+    )
 
     if not proxies.exists():
         logging.info("No proxies found, getting proxies from multiple sources.")
@@ -45,6 +51,13 @@ def ckeck_proxies():
         proxies = Proxy.select().where(Proxy.is_checked == False)
 
     pf.check_proxies(proxies)
+
+    latency_mean = Proxy.select(fn.AVG(Proxy.latency)).where(Proxy.is_working == True).scalar()  # type: ignore
+    latency_mean = round(latency_mean, 2)
+    proxies_working = Proxy.select().where(Proxy.is_working == True)  # type: ignore
+    logging.info(
+        f"Proxies working: {len(proxies_working)}, latency mean: {latency_mean} ms"
+    )
 
 
 def export_proxies(output, all_proxies):

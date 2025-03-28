@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 proxyfinder.egg-info
 script.py
+*.json
