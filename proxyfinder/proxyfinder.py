@@ -1,15 +1,23 @@
-import requests
-from concurrent.futures import ThreadPoolExecutor
-import time
-from bs4 import BeautifulSoup, Tag
-from proxyfinder.utils import get_user_agent, REGEX_GET_PROXY, TEST_URLS, STOP_FLAG
-from typing import Union, List
-import json
 import importlib.resources
-from proxyfinder.database import Proxy
+import json
 import logging
 import random
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from typing import List, Union
+
+import requests
+from bs4 import BeautifulSoup, Tag
+
+from proxyfinder.database import Proxy
+from proxyfinder.utils import (
+    REGEX_GET_HTTP_ERROR,
+    REGEX_GET_PROXY,
+    STOP_FLAG,
+    TEST_URLS,
+    get_user_agent,
+)
 
 
 class ProxyFinder:
@@ -28,7 +36,22 @@ class ProxyFinder:
         Obtains proxies from a specific source.
         """
         logging.info(f"Fetching proxies from: {url} (type: {parser_type})")
-        headers = {"User-Agent": get_user_agent()}
+        headers = headers = {
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "accept-language": "es,es-ES;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,es-CO;q=0.5",
+            "cache-control": "no-cache",
+            "pragma": "no-cache",
+            "priority": "u=0, i",
+            "sec-ch-ua": '"Not A(Brand";v="8", "Chromium";v="132", "Microsoft Edge";v="132"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Linux"',
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "none",
+            "sec-fetch-user": "?1",
+            "upgrade-insecure-requests": "1",
+            "user-agent": get_user_agent(),
+        }
 
         try:
             response = requests.get(url, headers=headers, timeout=self.TIMEOUT)
@@ -117,18 +140,23 @@ class ProxyFinder:
             start_time = time.time()
             proxy.is_checked = True  # type: ignore
             proxy.updated_at = datetime.now()
-            response = self.session.head(
+            response = self.session.get(
                 test_url, proxies=proxies, headers=headers, timeout=self.TIMEOUT
             )
             response.raise_for_status()
             proxy.latency = round((time.time() - start_time) * 1000, 2)  # type: ignore
             proxy.is_working = True  # type: ignore
+            proxy.location = response.json()
             logging.info(
                 f"Proxy {proxy.proxy} is working ({proxy.latency} ms) status: {response.status_code}"
             )
+
             return proxy
-        except requests.RequestException:
+        except requests.RequestException as e:
             proxy.is_working = False  # type: ignore
+            match = REGEX_GET_HTTP_ERROR.search(str(e))
+            if match:
+                proxy.error = match.group(1)
             logging.debug(f"Proxy {proxy.proxy} connection failed.")
             return proxy
 
@@ -154,7 +182,15 @@ class ProxyFinder:
 
                 if index % 10 == 0 and to_save:
                     Proxy.bulk_update(
-                        to_save, ["is_checked", "is_working", "latency", "updated_at"]
+                        to_save,
+                        [
+                            "is_checked",
+                            "is_working",
+                            "latency",
+                            "updated_at",
+                            "location",
+                            "error",
+                        ],
                     )
                     logging.info(f"Updated {len(to_save)} proxies in the database.")
                     to_save.clear()

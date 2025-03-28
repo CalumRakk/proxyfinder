@@ -1,9 +1,9 @@
-from pathlib import Path
-import threading
-import random
-import os
-import re
 import logging
+import os
+import random
+import re
+import threading
+from pathlib import Path
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -13,8 +13,9 @@ USER_AGENTS = [
 PROXIES_OUT_DIR = Path(os.getenv("APPDATA") or Path.home() / ".config") / "proxyfinder"
 PROXIES_OUT_DIR.mkdir(parents=True, exist_ok=True)
 REGEX_GET_PROXY = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5})")
-TEST_URLS = ["https://www.example.com", "https://httpbin.org/ip"]
+TEST_URLS = ["https://ipinfo.io/json", "https://ip.guide/frontend/api"]
 STOP_FLAG = threading.Event()
+REGEX_GET_HTTP_ERROR = re.compile(r"Caused by .*, ('.*')")
 
 
 def handler_stream(formatter) -> "logging.StreamHandler":

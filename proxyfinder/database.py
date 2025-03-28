@@ -1,6 +1,9 @@
-import peewee
-from proxyfinder.utils import PROXIES_OUT_DIR
 from datetime import datetime
+
+import peewee
+from playhouse.sqlite_ext import JSONField
+
+from proxyfinder.utils import PROXIES_OUT_DIR
 
 database_path = PROXIES_OUT_DIR / "proxies.db"
 db = peewee.SqliteDatabase(database_path)
@@ -14,6 +17,8 @@ class Proxy(peewee.Model):
     created_at = peewee.DateTimeField(default=datetime.now)
     updated_at = peewee.DateTimeField(default=datetime.now)
     note = peewee.TextField(null=True)
+    location = JSONField(null=True)
+    error = peewee.TextField(null=True)
 
     class Meta:
         database = db
@@ -35,3 +40,15 @@ class Proxy(peewee.Model):
 
 db.connect()
 db.create_tables([Proxy], safe=True)
+
+new_columns = {
+    "note": "TEXT",
+    "location": "JSON",
+    "error": "TEXT",
+}
+
+for column, column_type in new_columns.items():
+    try:
+        db.execute_sql(f"ALTER TABLE proxy ADD COLUMN {column} {column_type};")
+    except peewee.OperationalError:
+        pass

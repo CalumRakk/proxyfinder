@@ -5,8 +5,8 @@ import signal
 import sys
 from pathlib import Path
 
-from proxyfinder.proxyfinder import ProxyFinder
 from proxyfinder.database import Proxy
+from proxyfinder.proxyfinder import ProxyFinder
 from proxyfinder.utils import signal_handler
 
 
@@ -101,3 +101,7 @@ def main():
     except KeyboardInterrupt:
         logging.info("Process interrupted by user.")
         sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
