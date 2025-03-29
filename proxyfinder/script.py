@@ -37,20 +37,20 @@ def config_args():
 
 
 def ckeck_proxies():
-    pf = ProxyFinder()
-    a_day_ago = datetime.now() - Proxy.updated_at  # type: ignore
-    proxies = Proxy.select().where(
-        (Proxy.is_checked == False) | ((Proxy.is_working == True) & (Proxy.updated_at > a_day_ago))  # type: ignore
-    )
+    with ProxyFinder() as pf:
+        a_day_ago = datetime.now() - Proxy.updated_at  # type: ignore
+        proxies = Proxy.select().where(
+            (Proxy.is_checked == False) | ((Proxy.is_working == True) & (Proxy.updated_at > a_day_ago))  # type: ignore
+        )
 
-    if not proxies.exists():
-        logging.info("No proxies found, getting proxies from multiple sources.")
-        nuevos_proxies = pf.get_proxies_from_multiple_sources()
-        if not Proxy.save_proxies(nuevos_proxies):
-            return
-        proxies = Proxy.select().where(Proxy.is_checked == False)
+        if not proxies.exists():
+            logging.info("No proxies found, getting proxies from multiple sources.")
+            nuevos_proxies = pf.get_proxies_from_multiple_sources()
+            if not Proxy.save_proxies(nuevos_proxies):
+                return
+            proxies = Proxy.select().where(Proxy.is_checked == False)
 
-    pf.check_proxies(proxies)
+        pf.check_proxies(proxies)
 
     latency_mean = Proxy.select(fn.AVG(Proxy.latency)).where(Proxy.is_working == True).scalar()  # type: ignore
     latency_mean = round(latency_mean, 2)
