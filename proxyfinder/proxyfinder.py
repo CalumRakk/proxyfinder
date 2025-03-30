@@ -16,6 +16,7 @@ import re
 
 REGEX_GET_PROXY = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5})")
 REGEX_GET_HTTP_ERROR = re.compile(r"Caused by .*, ('.*')")
+logger = logging.getLogger(__name__)
 
 
 class ProxyFinderUtils:
@@ -59,7 +60,7 @@ class ProxyFinderUtils:
         self.session = requests.Session()
         self.concurrency = concurrency
         self.executor = ThreadPoolExecutor(max_workers=self.concurrency)
-        logging.debug(f"ProxyFinder initialized. {self.__dict__}")
+        logger.debug(f"ProxyFinder initialized. {self.__dict__}")
 
     def _parse_proxies(self, content: str, parser_type: str) -> List[str]:
         """Parses proxies depending on the source type."""
@@ -91,9 +92,9 @@ class ProxyFinderUtils:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        logging.debug("Closing the thread pool...")
+        logger.debug("Closing the thread pool...")
         self.executor.shutdown(wait=True)
-        logging.debug("Thread pool closed.")
+        logger.debug("Thread pool closed.")
 
     def _check_proxy(self, proxy: Proxy) -> Union[Proxy, None]:
         """
@@ -102,7 +103,7 @@ class ProxyFinderUtils:
         if STOP_FLAG.is_set():
             return None
 
-        logging.debug(f"Checking proxy: {proxy.proxy}")
+        logger.debug(f"Checking proxy: {proxy.proxy}")
         proxies = {"http": f"http://{proxy.proxy}", "https": f"http://{proxy.proxy}"}
         headers = {"User-Agent": self.get_user_agent()}
         config = random.choice(self.TEST_URLS)
@@ -125,7 +126,7 @@ class ProxyFinderUtils:
             proxy.latency = round((time.time() - start_time) * 1000, 2)  # type: ignore
             proxy.is_working = True  # type: ignore
             proxy.location = response.json()
-            logging.info(
+            logger.info(
                 f"Proxy {proxy.proxy} is working ({proxy.latency} ms) status: {response.status_code}"
             )
 
@@ -135,7 +136,7 @@ class ProxyFinderUtils:
             match = REGEX_GET_HTTP_ERROR.search(str(e))
             if match:
                 proxy.error = match.group(1)  # type: ignore
-            logging.debug(f"Proxy {proxy.proxy} connection failed.")
+            logger.debug(f"Proxy {proxy.proxy} connection failed.")
             return proxy
 
     def _check_url(self, config):
@@ -147,14 +148,14 @@ class ProxyFinderUtils:
                 url, params=params, headers=headers, timeout=self.TIMEOUT
             )
             response.raise_for_status()
-            logging.debug(f"URL {config['url']} is working.")
+            logger.debug(f"URL {config['url']} is working.")
             return config
         except requests.RequestException as e:
             logging.error(f"Error checking URL {url}: {e}")
             return
 
     def _check_urls(self) -> None:
-        logging.info("Checking Test URLs...")
+        logger.debug("Checking Test URLs...")
         futures = {
             self.executor.submit(self._check_url, config): config
             for config in self.TEST_URLS.copy()
@@ -173,7 +174,7 @@ class ProxyFinder(ProxyFinderUtils):
         """
         Obtains proxies from a specific source.
         """
-        logging.debug(f"Fetching proxies from: {url} (type: {parser_type})")
+        logger.debug(f"Fetching proxies from: {url} (type: {parser_type})")
         headers = headers = {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "accept-language": "es,es-ES;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,es-CO;q=0.5",
@@ -204,14 +205,14 @@ class ProxyFinder(ProxyFinderUtils):
             for proxy in proxies
             if (match := REGEX_GET_PROXY.match(proxy))
         ]
-        logging.info(f"Extracted {len(proxies_cleaned)} proxies from {url}")
+        logger.info(f"Extracted {len(proxies_cleaned)} proxies from {url}")
         return proxies_cleaned
 
     def get_proxies_from_multiple_sources(self) -> List[str]:
         """
         Obtains proxies from multiple public sources.
         """
-        logging.info("Fetching proxies from multiple sources.")
+        logger.info("Fetching proxies from multiple sources.")
         try:
             with importlib.resources.open_text("proxyfinder", "sources.json") as f:
                 sources = json.load(f)
@@ -234,14 +235,14 @@ class ProxyFinder(ProxyFinderUtils):
                 logging.error(f"Error in source {futures[future]}: {e}")
 
         unique_proxies = list(set(all_proxies))
-        logging.info(f"Total unique proxies obtained: {len(unique_proxies)}")
+        logger.info(f"Total unique proxies obtained: {len(unique_proxies)}")
         return unique_proxies
 
     def check_proxies(self, proxies: List[Proxy]):
         """
         Verifies a list of proxies in parallel.
         """
-        logging.info(f"Checking {len(proxies)} proxies.")
+        logger.info(f"Checking {len(proxies)} proxies.")
 
         self._check_urls()
 
@@ -255,7 +256,7 @@ class ProxyFinder(ProxyFinderUtils):
             proxy = future.result()
             if proxy is None:
                 continue
-            logging.info(f"Processed proxy {index}/{len(futures)}")
+            # logger.info(f"Processed proxy {index}/{len(futures)}")
             if proxy:
                 to_save.append(proxy)
 
@@ -271,10 +272,13 @@ class ProxyFinder(ProxyFinderUtils):
                         "error",
                     ],
                 )
-                logging.debug(f"Updated {len(to_save)} proxies in the database.")
+                logger.debug(f"Updated {len(to_save)} proxies in the database.")
                 to_save.clear()
+            if index % random.randint(5, 10) == 0:
+                logger.info(f"Processed {index}/{len(futures)} proxies.")
+
         if to_save:
             Proxy.bulk_update(
                 to_save, ["is_checked", "is_working", "latency", "updated_at"]
             )
-            logging.debug(f"Updated {len(to_save)} remaining proxies in the database.")
+            logger.debug(f"Updated {len(to_save)} remaining proxies in the database.")
