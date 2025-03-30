@@ -148,7 +148,7 @@ class ProxyFinderUtils:
                 url, params=params, headers=headers, timeout=self.TIMEOUT
             )
             response.raise_for_status()
-            logging.info(f"URL {config['url']} is working.")
+            logging.debug(f"URL {config['url']} is working.")
             return config
         except requests.RequestException as e:
             logging.error(f"Error checking URL {url}: {e}")

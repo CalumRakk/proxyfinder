@@ -10,7 +10,9 @@ from peewee import fn
 
 from proxyfinder.database import Proxy
 from proxyfinder.proxyfinder import ProxyFinder
-from proxyfinder.utils import signal_handler
+from proxyfinder.utils import signal_handler, ProxyDisplay
+
+from curses import wrapper, window
 
 
 def config_args():
@@ -18,7 +20,7 @@ def config_args():
     parser.add_argument(
         "action",
         nargs="?",
-        choices=["check", "export"],
+        choices=["check", "export", "show"],
         default="check",
         help="Action to perform: 'check' to verify proxies, 'export' to export proxies to a CSV file.",
     )
@@ -33,7 +35,24 @@ def config_args():
         action="store_true",
         help="Export all proxies (default: only working proxies).",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Limit the number of proxies to check (default: 300).",
+    )
+    return parser.parse_args(["show", "--limit", "50"])
+
+
+def show_proxies(stdscr: window, working_only=True, limit=None):
+    proxies = Proxy.select()
+    if working_only:
+        proxies = proxies.where(Proxy.is_working == working_only)
+
+    if limit:
+        proxies = proxies.limit(limit)
+
+    display = ProxyDisplay(stdscr, proxies)
+    display.navigate()
 
 
 def ckeck_proxies():
@@ -102,7 +121,7 @@ def export_proxies(output, all_proxies):
         logging.error(f"Error exporting proxies: {e}")
 
 
-def main():
+def main(stdscr):
     signal.signal(signal.SIGINT, signal_handler)
     args = config_args()
 
@@ -111,10 +130,12 @@ def main():
             ckeck_proxies()
         elif args.action == "export":
             export_proxies(args.output, args.all)
+        elif args.action == "show":
+            show_proxies(stdscr, working_only=False, limit=args.limit)
     except KeyboardInterrupt:
         logging.info("Process interrupted by user.")
         sys.exit(0)
 
 
 if __name__ == "__main__":
-    main()
+    wrapper(main)
