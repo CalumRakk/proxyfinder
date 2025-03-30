@@ -17,7 +17,7 @@ setup(
     include_package_data=True,
     entry_points={
         "console_scripts": [
-            "proxyfinder=proxyfinder.script:main",
+            "proxyfinder=proxyfinder.cli:main",
         ],
     },
     extras_require={
