@@ -19,7 +19,7 @@ REGEX_GET_HTTP_ERROR = re.compile(r"Caused by .*, ('.*')")
 
 
 class ProxyFinderUtils:
-    TIMEOUT = 5
+    TIMEOUT = 10
     TEST_URLS = [
         {
             "url": "https://demo.ip-api.com/json/",
