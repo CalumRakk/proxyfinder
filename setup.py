@@ -1,7 +1,9 @@
 from setuptools import find_packages, setup
+import os
 
 VERSION = "0.5"
-DESCRIPTION = "Un simple buscador de proxies"
+DESCRIPTION = "A simple proxy finder"
+WINDOWS_DEPENDENCIES = ["windows-curses==2.4.1"] if os.name == "nt" else []
 
 setup(
     name="proxyfinder",
@@ -17,5 +19,8 @@ setup(
         "console_scripts": [
             "proxyfinder=proxyfinder.script:main",
         ],
+    },
+    extras_require={
+        "win": WINDOWS_DEPENDENCIES,
     },
 )
