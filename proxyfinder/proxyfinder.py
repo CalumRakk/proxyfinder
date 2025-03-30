@@ -20,8 +20,6 @@ REGEX_GET_HTTP_ERROR = re.compile(r"Caused by .*, ('.*')")
 
 class ProxyFinderUtils:
     TIMEOUT = 5
-    MAX_WORKERS = 50
-    THREAD_POOL_SIZE = 10
     TEST_URLS = [
         {
             "url": "https://demo.ip-api.com/json/",
@@ -57,10 +55,11 @@ class ProxyFinderUtils:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
     ]
 
-    def __init__(self):
+    def __init__(self, concurrency=10):
         self.session = requests.Session()
-        self.executor = ThreadPoolExecutor(max_workers=self.THREAD_POOL_SIZE)
-        logging.info("ProxyFinder initialized.")
+        self.concurrency = concurrency
+        self.executor = ThreadPoolExecutor(max_workers=self.concurrency)
+        logging.debug(f"ProxyFinder initialized. {self.__dict__}")
 
     def _parse_proxies(self, content: str, parser_type: str) -> List[str]:
         """Parses proxies depending on the source type."""
@@ -92,9 +91,9 @@ class ProxyFinderUtils:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        logging.info("Cerrando el pool de hilos...")
+        logging.debug("Closing the thread pool...")
         self.executor.shutdown(wait=True)
-        logging.info("Pool de hilos cerrado.")
+        logging.debug("Thread pool closed.")
 
     def _check_proxy(self, proxy: Proxy) -> Union[Proxy, None]:
         """
@@ -174,7 +173,7 @@ class ProxyFinder(ProxyFinderUtils):
         """
         Obtains proxies from a specific source.
         """
-        logging.info(f"Fetching proxies from: {url} (type: {parser_type})")
+        logging.debug(f"Fetching proxies from: {url} (type: {parser_type})")
         headers = headers = {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "accept-language": "es,es-ES;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,es-CO;q=0.5",
@@ -205,7 +204,7 @@ class ProxyFinder(ProxyFinderUtils):
             for proxy in proxies
             if (match := REGEX_GET_PROXY.match(proxy))
         ]
-        logging.info(f"Obtained {len(proxies_cleaned)} cleaned proxies from {url}")
+        logging.info(f"Extracted {len(proxies_cleaned)} proxies from {url}")
         return proxies_cleaned
 
     def get_proxies_from_multiple_sources(self) -> List[str]:
@@ -231,7 +230,6 @@ class ProxyFinder(ProxyFinderUtils):
             try:
                 proxies = future.result()
                 all_proxies.extend(proxies)
-                logging.info(f"Obtained {len(proxies)} proxies from {futures[future]}")
             except Exception as e:
                 logging.error(f"Error in source {futures[future]}: {e}")
 

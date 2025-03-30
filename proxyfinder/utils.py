@@ -55,7 +55,7 @@ class ProxyDisplay:
         visible_proxies = self.proxies[self.start_index : end]
 
         for i, proxy in enumerate(visible_proxies):
-            line = f"{proxy.proxy} - Working: {proxy.is_working} - Latency: {proxy.latency}"
+            line = f"{proxy.proxy} - Working: {proxy.is_working} - Latency: {proxy.latency} ms - updated: {proxy.updated_at.strftime('%Y-%m-%d %H:%M')}"
             if proxy.is_working:
                 self.stdscr.addstr(i, 0, line, curses.color_pair(1))
             else:

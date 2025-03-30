@@ -5,7 +5,6 @@ from proxyfinder.proxyfinder import ProxyFinder
 from proxyfinder.utils import ProxyDisplay
 from datetime import timedelta
 import logging
-from curses import window
 from pathlib import Path
 import csv
 import signal
@@ -13,6 +12,9 @@ from curses import wrapper
 import sys
 from proxyfinder.utils import signal_handler
 from peewee import fn
+import os
+
+logger = logging.getLogger(__name__)
 
 
 def config_args():
@@ -20,8 +22,8 @@ def config_args():
     parser.add_argument(
         "action",
         nargs="?",
-        choices=["check", "export", "show"],
-        default="check",
+        choices=["find", "check", "export", "show", "update"],
+        default="find",
         help="Action to perform: 'check' to verify proxies, 'export' to export proxies to a CSV file.",
     )
 
@@ -51,11 +53,30 @@ def config_args():
     parser.add_argument(
         "--reverse", action="store_true", help="Reverse the order of the proxies."
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=10,
+        help="Number of threads to use for checking proxies. ",
+    )
+    parser.add_argument(
+        "--older-than",
+        type=int,
+        default=0,
+        help="Only work with proxies older than N days.",
+    )
+
+    args = parser.parse_args()
+
+    concurrency = os.cpu_count() or 2
+    concurrency += 2
+    max_concurrency = min(concurrency, args.concurrency)
+    setattr(args, "concurrency", max_concurrency)
+    return args
 
 
 def show_proxies(
-    status: str, limit=None, count=False, sort_by="latency", reverse=False
+    status: str, limit=None, count=False, sort_by="latency", reverse=False, older_than=0
 ):
     if status == "working":
         proxies = Proxy.select().where(
@@ -75,6 +96,10 @@ def show_proxies(
     if limit:
         proxies = proxies.limit(limit)
 
+    if older_than > 0 and status != "all":
+        a_day_ago = datetime.now() - timedelta(days=older_than)
+        proxies = proxies.where(Proxy.updated_at > a_day_ago)  # type: ignore
+
     if count:
         print(
             f"Total proxies: {len(proxies)}{f' {status}' if status != 'all' else ''} in the database"
@@ -90,52 +115,44 @@ def show_proxies(
     wrapper(func)
 
 
-def ckeck_proxies():
-    with ProxyFinder() as pf:
-        a_day_ago = datetime.now() - timedelta(days=1)  # type: ignore
-        proxies = Proxy.select().where(
-            (Proxy.is_checked == False) | ((Proxy.is_working == True) & (Proxy.updated_at < a_day_ago))  # type: ignore
-        )
+def ckeck_proxies(concurrency, status="working", older_than=0):
+    with ProxyFinder(concurrency=concurrency) as pf:
 
-        if not proxies.exists():
-            logging.info("No proxies found, getting proxies from multiple sources.")
-            nuevos_proxies = pf.get_proxies_from_multiple_sources()
-            if not Proxy.save_proxies(nuevos_proxies):
-                return
+        if status == "working":
+            proxies = Proxy.select().where(
+                Proxy.is_working == True,
+                Proxy.is_checked == True,
+            )
+        elif status == "broken":
+            proxies = Proxy.select().where(
+                Proxy.is_working == False, Proxy.is_checked == True
+            )
+        elif status == "unchecked":
             proxies = Proxy.select().where(Proxy.is_checked == False)
+        elif status == "all":
+            proxies = Proxy.select()
+        else:
+            raise ValueError(f"Invalid status: {status}")
+
+        if older_than > 0:
+            a_day_ago = datetime.now() - timedelta(days=older_than)
+            proxies = proxies.where(Proxy.updated_at > a_day_ago)  # type: ignore
 
         pf.check_proxies(proxies)
 
-    latency_mean = Proxy.select(fn.AVG(Proxy.latency)).where(Proxy.is_working == True).scalar()  # type: ignore
-    latency_mean = round(latency_mean, 2)
-    proxies_working = Proxy.select().where(Proxy.is_working == True)  # type: ignore
-    logging.info(
-        f"Proxies working: {len(proxies_working)}, latency mean: {latency_mean} ms"
-    )
+    # latency_mean = Proxy.select(fn.AVG(Proxy.latency)).where(Proxy.is_working == True).scalar()  # type: ignore
+    # latency_mean = round(latency_mean, 2)
+    # proxies_working = Proxy.select().where(Proxy.is_working == True)  # type: ignore
+    # logging.info(
+    #     f"Proxies working: {len(proxies_working)}, latency mean: {latency_mean} ms"
+    # )
 
 
-def find_proxies():
-    with ProxyFinder() as pf:
-        a_day_ago = datetime.now() - timedelta(days=1)  # type: ignore
-        proxies = Proxy.select().where(
-            (Proxy.is_checked == False) | ((Proxy.is_working == True) & (Proxy.updated_at < a_day_ago))  # type: ignore
-        )
-
-        if not proxies.exists():
-            logging.info("No proxies found, getting proxies from multiple sources.")
-            nuevos_proxies = pf.get_proxies_from_multiple_sources()
-            if not Proxy.save_proxies(nuevos_proxies):
-                return
-            proxies = Proxy.select().where(Proxy.is_checked == False)
-
-        pf.check_proxies(proxies)
-
-    latency_mean = Proxy.select(fn.AVG(Proxy.latency)).where(Proxy.is_working == True).scalar()  # type: ignore
-    latency_mean = round(latency_mean, 2)
-    proxies_working = Proxy.select().where(Proxy.is_working == True)  # type: ignore
-    logging.info(
-        f"Proxies working: {len(proxies_working)}, latency mean: {latency_mean} ms"
-    )
+def find_proxies(concurrency):
+    with ProxyFinder(concurrency=concurrency) as pf:
+        news_proxies = pf.get_proxies_from_multiple_sources()
+        count_new_proxies = Proxy.save_proxies(news_proxies)
+        logging.info(f"Obtained {count_new_proxies} new proxies from multiple sources.")
 
 
 def export_proxies(output, all_proxies):
@@ -180,16 +197,30 @@ def export_proxies(output, all_proxies):
         logging.error(f"Error exporting proxies: {e}")
 
 
+def update_proxies(concurrency):
+    find_proxies(concurrency=concurrency)
+    ckeck_proxies(concurrency=concurrency)
+
+
 def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     args = config_args()
 
     try:
+        logger.info(f"Action: {args.action} args: {args}")
         if args.action == "check":
-            ckeck_proxies()
+            ckeck_proxies(
+                concurrency=args.concurrency,
+                status=args.status,
+                older_than=args.older_than,
+            )
         elif args.action == "export":
             export_proxies(args.output, args.all)
+        elif args.action == "find":
+            find_proxies(concurrency=args.concurrency)
+        elif args.action == "update":
+            update_proxies(concurrency=args.concurrency)
         elif args.action == "show":
             show_proxies(
                 status=args.status,
@@ -197,6 +228,7 @@ def main():
                 count=args.count,
                 sort_by=args.sort_by,
                 reverse=args.reverse,
+                older_than=args.older_than,
             )
 
     except KeyboardInterrupt:

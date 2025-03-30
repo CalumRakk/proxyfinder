@@ -28,14 +28,13 @@ class Proxy(peewee.Model):
         return super().save(*args, **kwargs)
 
     @classmethod
-    def save_proxies(cls, proxies: list[str]) -> bool:
+    def save_proxies(cls, proxies: list[str]) -> int:
         existing = [i.proxy for i in Proxy.select().where(Proxy.proxy.in_(proxies))]  # type: ignore
         new_items = [Proxy(proxy=i) for i in proxies if i not in existing]
         if new_items:
             with db.atomic():
                 Proxy.bulk_create(new_items)
-            return True
-        return False
+        return len(new_items)
 
 
 db.connect()
