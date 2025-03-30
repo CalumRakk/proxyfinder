@@ -16,7 +16,7 @@ from peewee import fn
 
 
 def config_args():
-    parser = argparse.ArgumentParser(description="Finds and verifies HTTP proxies.")
+    parser = argparse.ArgumentParser(description="Encuentra y verifica proxies HTTP.")
     parser.add_argument(
         "action",
         nargs="?",
@@ -24,38 +24,97 @@ def config_args():
         default="check",
         help="Action to perform: 'check' to verify proxies, 'export' to export proxies to a CSV file.",
     )
+
     parser.add_argument(
-        "output",
-        nargs="?",
-        default="proxies.csv",
-        help="Location of the CSV file to export proxies to (default: proxies.csv).",
-    )
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Export all proxies (default: only working proxies).",
+        "--status",
+        choices=["working", "broken", "unchecked", "all"],
+        default="working",
+        help="Filter proxies by their status (working, broken, unchecked, all).",
     )
     parser.add_argument(
         "--limit",
         type=int,
-        help="Limit the number of proxies to check (default: 300).",
+        default=None,
+        help="limit of proxies to display.",
     )
-    return parser.parse_args(["check"])
+    parser.add_argument(
+        "--count",
+        action="store_true",
+        help="Displays the number of proxies in the database.",
+    )
+    parser.add_argument(
+        "--sort-by",
+        default="latency",
+        help="Sort proxies by a specific field.",
+        choices=["latency", "created_at", "updated_at"],
+    )
+    parser.add_argument(
+        "--reverse", action="store_true", help="Reverse the order of the proxies."
+    )
+    return parser.parse_args()
 
 
-def show_proxies(stdscr: window, working_only=True, limit=None):
-    proxies = Proxy.select()
-    if working_only:
-        proxies = proxies.where(Proxy.is_working == working_only)
+def show_proxies(
+    status: str, limit=None, count=False, sort_by="latency", reverse=False
+):
+    if status == "working":
+        proxies = Proxy.select().where(
+            Proxy.is_working == True, Proxy.is_checked == True
+        )
+    elif status == "broken":
+        proxies = Proxy.select().where(
+            Proxy.is_working == False, Proxy.is_checked == True
+        )
+    elif status == "unchecked":
+        proxies = Proxy.select().where(Proxy.is_checked == False)
+    elif status == "all":
+        proxies = Proxy.select()
+    else:
+        raise ValueError(f"Invalid status: {status}")
 
     if limit:
         proxies = proxies.limit(limit)
 
-    display = ProxyDisplay(stdscr, proxies)
-    display.navigate()
+    if count:
+        print(
+            f"Total proxies: {len(proxies)}{f' {status}' if status != 'all' else ''} in the database"
+        )
+        return
+
+    proxies = sorted(proxies, key=lambda x: getattr(x, sort_by), reverse=reverse)
+
+    def func(stdscr):
+        display = ProxyDisplay(stdscr, proxies)
+        display.navigate()
+
+    wrapper(func)
 
 
 def ckeck_proxies():
+    with ProxyFinder() as pf:
+        a_day_ago = datetime.now() - timedelta(days=1)  # type: ignore
+        proxies = Proxy.select().where(
+            (Proxy.is_checked == False) | ((Proxy.is_working == True) & (Proxy.updated_at < a_day_ago))  # type: ignore
+        )
+
+        if not proxies.exists():
+            logging.info("No proxies found, getting proxies from multiple sources.")
+            nuevos_proxies = pf.get_proxies_from_multiple_sources()
+            if not Proxy.save_proxies(nuevos_proxies):
+                return
+            proxies = Proxy.select().where(Proxy.is_checked == False)
+
+        pf.check_proxies(proxies)
+
+    latency_mean = Proxy.select(fn.AVG(Proxy.latency)).where(Proxy.is_working == True).scalar()  # type: ignore
+    latency_mean = round(latency_mean, 2)
+    proxies_working = Proxy.select().where(Proxy.is_working == True)  # type: ignore
+    logging.info(
+        f"Proxies working: {len(proxies_working)}, latency mean: {latency_mean} ms"
+    )
+
+
+def find_proxies():
     with ProxyFinder() as pf:
         a_day_ago = datetime.now() - timedelta(days=1)  # type: ignore
         proxies = Proxy.select().where(
@@ -132,7 +191,13 @@ def main():
         elif args.action == "export":
             export_proxies(args.output, args.all)
         elif args.action == "show":
-            wrapper(show_proxies, working_only=not args.all, limit=args.limit)
+            show_proxies(
+                status=args.status,
+                limit=args.limit,
+                count=args.count,
+                sort_by=args.sort_by,
+                reverse=args.reverse,
+            )
 
     except KeyboardInterrupt:
         logging.info("Proceso interrumpido por el usuario.")
