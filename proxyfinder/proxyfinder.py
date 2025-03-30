@@ -271,10 +271,10 @@ class ProxyFinder(ProxyFinderUtils):
                         "error",
                     ],
                 )
-                logging.info(f"Updated {len(to_save)} proxies in the database.")
+                logging.debug(f"Updated {len(to_save)} proxies in the database.")
                 to_save.clear()
         if to_save:
             Proxy.bulk_update(
                 to_save, ["is_checked", "is_working", "latency", "updated_at"]
             )
-            logging.info(f"Updated {len(to_save)} remaining proxies in the database.")
+            logging.debug(f"Updated {len(to_save)} remaining proxies in the database.")

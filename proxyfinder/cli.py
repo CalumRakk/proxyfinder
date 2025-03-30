@@ -18,60 +18,85 @@ logger = logging.getLogger(__name__)
 
 
 def config_args():
-    parser = argparse.ArgumentParser(description="Encuentra y verifica proxies HTTP.")
-    parser.add_argument(
-        "action",
-        nargs="?",
-        choices=["find", "check", "export", "show", "update"],
-        default="find",
-        help="Action to perform: 'check' to verify proxies, 'export' to export proxies to a CSV file.",
+    parser = argparse.ArgumentParser(
+        description="CLI to find, check, and manage HTTP proxies."
+    )
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    # 'find' command
+    find_parser = subparsers.add_parser("find", help="Find new proxies.")
+    find_parser.add_argument(
+        "--concurrency", type=int, default=10, help="Number of threads for searching."
     )
 
-    parser.add_argument(
+    # 'check' command
+    check_parser = subparsers.add_parser("check", help="Check the status of proxies.")
+    check_parser.add_argument(
         "--status",
         choices=["working", "broken", "unchecked", "all"],
         default="working",
-        help="Filter proxies by their status (working, broken, unchecked, all).",
+        help="Filter proxies by status.",
     )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="limit of proxies to display.",
+    check_parser.add_argument(
+        "--concurrency", type=int, default=10, help="Number of threads for checking."
     )
-    parser.add_argument(
-        "--count",
-        action="store_true",
-        help="Displays the number of proxies in the database.",
-    )
-    parser.add_argument(
-        "--sort-by",
-        default="latency",
-        help="Sort proxies by a specific field.",
-        choices=["latency", "created_at", "updated_at"],
-    )
-    parser.add_argument(
-        "--reverse", action="store_true", help="Reverse the order of the proxies."
-    )
-    parser.add_argument(
-        "--concurrency",
-        type=int,
-        default=10,
-        help="Number of threads to use for checking proxies. ",
-    )
-    parser.add_argument(
+    check_parser.add_argument(
         "--older-than",
         type=int,
         default=0,
-        help="Only work with proxies older than N days.",
+        help="Only check proxies older than N days.",
+    )
+
+    # 'show' command
+    show_parser = subparsers.add_parser("show", help="Display stored proxies.")
+    show_parser.add_argument(
+        "--status",
+        choices=["working", "broken", "unchecked", "all"],
+        default="working",
+        help="Filter proxies by status.",
+    )
+    show_parser.add_argument(
+        "--limit", type=int, help="Limit the number of proxies to display."
+    )
+    show_parser.add_argument(
+        "--count",
+        action="store_true",
+        help="Show the number of proxies in the database.",
+    )
+    show_parser.add_argument(
+        "--sort-by",
+        choices=["latency", "created_at", "updated_at"],
+        default="latency",
+        help="Sort proxies by a specific field.",
+    )
+    show_parser.add_argument(
+        "--reverse", action="store_true", help="Reverse the order of proxies."
+    )
+    show_parser.add_argument(
+        "--older-than", type=int, default=0, help="Filter proxies older than N days."
+    )
+
+    # 'export' command
+    export_parser = subparsers.add_parser(
+        "export", help="Export proxies to a CSV file."
+    )
+    export_parser.add_argument("output", type=str, help="Output file.")
+    export_parser.add_argument(
+        "--all", action="store_true", help="Export all proxies, not just working ones."
+    )
+
+    # 'update' command
+    update_parser = subparsers.add_parser("update", help="Find and check new proxies.")
+    update_parser.add_argument(
+        "--concurrency", type=int, default=10, help="Number of threads for updating."
     )
 
     args = parser.parse_args()
-
-    concurrency = os.cpu_count() or 2
-    concurrency += 2
-    max_concurrency = min(concurrency, args.concurrency)
-    setattr(args, "concurrency", max_concurrency)
+    if hasattr(args, "concurrency"):
+        concurrency = os.cpu_count() or 2
+        concurrency += 2
+        max_concurrency = min(concurrency, args.concurrency)
+        setattr(args, "concurrency", max_concurrency)
     return args
 
 
@@ -208,7 +233,7 @@ def main():
     args = config_args()
 
     try:
-        logger.info(f"Action: {args.action} args: {args}")
+        logger.debug(f"Action: {args.action} args: {args}")
         if args.action == "check":
             ckeck_proxies(
                 concurrency=args.concurrency,
