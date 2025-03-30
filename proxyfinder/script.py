@@ -40,7 +40,7 @@ def config_args():
         type=int,
         help="Limit the number of proxies to check (default: 300).",
     )
-    return parser.parse_args(["show", "--limit", "50"])
+    return parser.parse_args()
 
 
 def show_proxies(stdscr: window, working_only=True, limit=None):
@@ -121,8 +121,9 @@ def export_proxies(output, all_proxies):
         logging.error(f"Error exporting proxies: {e}")
 
 
-def main(stdscr):
+def main():
     signal.signal(signal.SIGINT, signal_handler)
+
     args = config_args()
 
     try:
@@ -131,11 +132,12 @@ def main(stdscr):
         elif args.action == "export":
             export_proxies(args.output, args.all)
         elif args.action == "show":
-            show_proxies(stdscr, working_only=False, limit=args.limit)
+            wrapper(show_proxies, working_only=not args.all, limit=args.limit)
+
     except KeyboardInterrupt:
-        logging.info("Process interrupted by user.")
+        logging.info("Proceso interrumpido por el usuario.")
         sys.exit(0)
 
 
 if __name__ == "__main__":
-    wrapper(main)
+    main()

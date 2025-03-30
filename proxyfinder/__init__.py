@@ -13,9 +13,3 @@ logging.basicConfig(
 logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 logging.getLogger("peewee").setLevel(logging.CRITICAL)
 logger = logging.getLogger(__name__)
-logger.info(
-    """
-    =====================
-    Start of the program
-    ====================="""
-)
