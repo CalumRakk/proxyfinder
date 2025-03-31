@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 import os
 
-VERSION = "0.5"
+VERSION = "0.8"
 DESCRIPTION = "A simple proxy finder"
 INSTALL_REQUIRES = ["beautifulsoup4==4.13.3", "peewee==3.17.9", "requests==2.32.3"]
 if os.name == "nt":
