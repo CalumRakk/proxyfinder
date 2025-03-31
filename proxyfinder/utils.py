@@ -34,7 +34,7 @@ def logger_formatter() -> "logging.Formatter":
 
 def signal_handler(sig, frame):
     """Maneja la señal SIGINT (Ctrl+C)."""
-    logging.info("SIGINT signal received. Please wait... closing threads...")
+    logging.info("\n\nSIGINT signal received. Please wait... closing threads...\n\n")
     STOP_FLAG.set()
 
 

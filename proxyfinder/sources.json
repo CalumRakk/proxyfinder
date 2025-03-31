@@ -18,5 +18,21 @@
   {
     "url": "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/proxy.txt",
     "parser_type": "plain"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/vmheaven/VMHeaven-Free-Proxy-Updated/refs/heads/main/https.txt",
+    "parser_type": "plain"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/vmheaven/VMHeaven-Free-Proxy-Updated/refs/heads/main/http.txt",
+    "parser_type": "plain"
+  },
+  {
+    "url": "https://vakhov.github.io/fresh-proxy-list/https.txt",
+    "parser_type": "plain"
+  },
+  {
+    "url": "https://vakhov.github.io/fresh-proxy-list/http.txt",
+    "parser_type": "plain"
   }
 ]

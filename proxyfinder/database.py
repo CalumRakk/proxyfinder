@@ -2,7 +2,7 @@ from datetime import datetime
 
 import peewee
 from playhouse.sqlite_ext import JSONField
-
+from playhouse.shortcuts import chunked
 from proxyfinder.utils import PROXIES_OUT_DIR
 
 database_path = PROXIES_OUT_DIR / "proxies.db"
@@ -33,7 +33,8 @@ class Proxy(peewee.Model):
         new_items = [Proxy(proxy=i) for i in proxies if i not in existing]
         if new_items:
             with db.atomic():
-                Proxy.bulk_create(new_items)
+                for batch in chunked(new_items, 500):
+                    Proxy.bulk_create(batch)
         return len(new_items)
 
     def to_dict(self):
