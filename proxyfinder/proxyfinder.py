@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProxyFinderUtils:
-    TIMEOUT = 10
+    TIMEOUT = 12
     TEST_URLS = [
         {
             "url": "https://demo.ip-api.com/json/",
