@@ -13,6 +13,7 @@ import sys
 from proxyfinder.utils import signal_handler
 from peewee import fn
 import os
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,25 @@ def config_args():
     )
     export_parser.add_argument("output", type=str, help="Output file.")
     export_parser.add_argument(
-        "--all", action="store_true", help="Export all proxies, not just working ones."
+        "--status",
+        choices=["working", "broken", "unchecked", "all"],
+        default="working",
+        help="Filter proxies by status.",
+    )
+    export_parser.add_argument(
+        "--limit", type=int, help="Limit the number of proxies to display."
+    )
+    export_parser.add_argument(
+        "--sort-by",
+        choices=["latency", "created_at", "updated_at"],
+        default="latency",
+        help="Sort proxies by a specific field.",
+    )
+    export_parser.add_argument(
+        "--reverse", action="store_true", help="Reverse the order of proxies."
+    )
+    export_parser.add_argument(
+        "--older-than", type=int, default=0, help="Filter proxies older than N days."
     )
 
     # 'update' command
@@ -180,46 +199,86 @@ def find_proxies(concurrency):
         logging.info(f"Obtained {count_new_proxies} new proxies from multiple sources.")
 
 
-def export_proxies(output, all_proxies):
-    logging.info(f"Exporting proxies to {output}, including all: {all_proxies}")
-    proxies = (
-        Proxy.select()
-        if all_proxies
-        else Proxy.select().where(Proxy.is_working == True)
-    )
+def export_proxies(
+    output,
+    status="working",
+    limit=None,
+    older_than=0,
+    sort_by="latency",
+    reverse=False,
+):
+    output = Path(output) if isinstance(output, str) else output
+    if status == "working":
+        proxies = Proxy.select().where(
+            Proxy.is_working == True, Proxy.is_checked == True
+        )
+    elif status == "broken":
+        proxies = Proxy.select().where(
+            Proxy.is_working == False, Proxy.is_checked == True
+        )
+    elif status == "unchecked":
+        proxies = Proxy.select().where(Proxy.is_checked == False)
+    elif status == "all":
+        proxies = Proxy.select()
+    else:
+        raise ValueError(f"Invalid status: {status}")
 
-    output = Path(output).with_suffix(".csv")
+    if limit:
+        proxies = proxies.limit(limit)
+
+    if older_than > 0 and status != "all":
+        a_day_ago = datetime.now() - timedelta(days=older_than)
+        proxies = proxies.where(Proxy.updated_at > a_day_ago)  # type: ignore
+
+    proxies = sorted(proxies, key=lambda x: getattr(x, sort_by), reverse=reverse)
+
     output.parent.mkdir(parents=True, exist_ok=True)
+    if output.suffix == ".csv":
+        try:
+            with open(output, "w", newline="", encoding="utf-8") as csvfile:
+                fieldnames = [
+                    "proxy",
+                    "is_working",
+                    "latency",
+                    "is_checked",
+                    "created_at",
+                    "updated_at",
+                    "note",
+                ]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
 
-    try:
-        with open(output, "w", newline="", encoding="utf-8") as csvfile:
-            fieldnames = [
-                "proxy",
-                "is_working",
-                "latency",
-                "is_checked",
-                "created_at",
-                "updated_at",
-                "note",
-            ]
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-
-            for proxy in proxies:
-                writer.writerow(
-                    {
-                        "proxy": proxy.proxy,
-                        "is_working": proxy.is_working,
-                        "latency": proxy.latency,
-                        "is_checked": proxy.is_checked,
-                        "created_at": proxy.created_at,
-                        "updated_at": proxy.updated_at,
-                        "note": proxy.note,
-                    }
-                )
-        logging.info(f"Proxies successfully exported to {output}")
-    except Exception as e:
-        logging.error(f"Error exporting proxies: {e}")
+                for proxy in proxies:
+                    writer.writerow(
+                        {
+                            "proxy": proxy.proxy,
+                            "is_working": proxy.is_working,
+                            "latency": proxy.latency,
+                            "is_checked": proxy.is_checked,
+                            "created_at": proxy.created_at,
+                            "updated_at": proxy.updated_at,
+                            "note": proxy.note,
+                        }
+                    )
+            logging.info(f"Proxies successfully exported to {output}")
+        except Exception as e:
+            logging.error(f"Error exporting proxies: {e}")
+    elif output.suffix == ".json":
+        try:
+            with open(output, "w", encoding="utf-8") as f:
+                json.dump([proxy.to_dict() for proxy in proxies], f, indent=4)
+            logging.info(f"Proxies successfully exported to {output}")
+        except Exception as e:
+            logging.error(f"Error exporting proxies: {e}")
+    elif output.suffix == ".txt":
+        try:
+            with open(output, "w", encoding="utf-8") as f:
+                f.write("\n".join([proxy.proxy for proxy in proxies]))
+            logging.info(f"Proxies successfully exported to {output}")
+        except Exception as e:
+            logging.error(f"Error exporting proxies: {e}")
+    else:
+        raise ValueError(f"Invalid output format: {output.suffix}")
 
 
 def update_proxies(concurrency):
@@ -241,7 +300,14 @@ def main():
                 older_than=args.older_than,
             )
         elif args.action == "export":
-            export_proxies(args.output, args.all)
+            export_proxies(
+                args.output,
+                status=args.status,
+                limit=args.limit,
+                sort_by=args.sort_by,
+                reverse=args.reverse,
+                older_than=args.older_than,
+            )
         elif args.action == "find":
             find_proxies(concurrency=args.concurrency)
         elif args.action == "update":

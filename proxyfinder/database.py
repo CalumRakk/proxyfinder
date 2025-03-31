@@ -36,6 +36,19 @@ class Proxy(peewee.Model):
                 Proxy.bulk_create(new_items)
         return len(new_items)
 
+    def to_dict(self):
+        return {
+            "proxy": self.proxy,
+            "is_working": self.is_working,
+            "latency": self.latency,
+            "is_checked": self.is_checked,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M"),
+            "note": self.note,
+            "location": self.location,
+            "error": self.error,
+        }
+
 
 db.connect()
 db.create_tables([Proxy], safe=True)
