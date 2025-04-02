@@ -35,7 +35,7 @@ def config_args():
     check_parser.add_argument(
         "--status",
         choices=["working", "broken", "unchecked", "all"],
-        default="working",
+        default="unchecked",
         help="Filter proxies by status.",
     )
     check_parser.add_argument(
