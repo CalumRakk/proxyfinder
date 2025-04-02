@@ -29,109 +29,133 @@ The general structure of the commands is:
 proxyfinder <command> [options]
 ```
 
-### Available Commands:
+The following command finds new proxies and saves them:
 
-1.  **`find`:** Finds and adds new proxies to the database.
+```bash
+proxyfinder find
+```
 
-    ```bash
-    proxyfinder find [--concurrency <num>]
-    ```
+The following command checks if the proxies that have not been "verified" are working:
 
-    - `--concurrency <num>` (optional): Number of threads to use for searching. Defaults to 10.
+```bash
+proxyfinder check
+```
 
-    This command searches for new proxies in the configured sources and adds them to the database. It doesn't verify proxy servers, so you must use the check command.
+Alternatively, you can use the following command, which performs both `find` and `check` in a single step:
 
-    **Example:**
+```bash
+proxyfinder update
+```
 
-    ```bash
-    proxyfinder find
-    ```
+Finally, you can view the working proxies or export them to a file:
 
-    This command finds new proxies
+```bash
+proxyfinder show
+proxyfinder export proxies.txt
+```
 
-2.  **`check`:** Checks the status of proxies.
+## Command Details
 
-    ```bash
-    proxyfinder check [--status <status>] [--concurrency <num>] [--older-than <days>]
-    ```
+### 1. **`find`** - Finds and adds new proxies to the database.
 
-    - `--status <status>` (optional): Filters the proxies to check based on their status. Possible values: `working`, `broken`, `unchecked`, or `all`. Defaults to `working`.
-    - `--concurrency <num>` (optional): Number of threads to use for checking. Defaults to 10.
-    - `--older-than <days>` (optional): Only check proxies that haven't been checked in the last N days. Defaults to 0 (checks all proxies).
+```bash
+proxyfinder find [--concurrency <num>]
+```
 
-    This command verifies the functionality of the proxies in the database and updates their status (working/broken).
+- `--concurrency <num>` (optional): Number of threads to use for searching. Defaults to 10.
 
-    **Examples:**
+This command searches for new proxies in the configured sources and adds them to the database. It does not verify proxy servers, so you must use the `check` command.
 
-    ```bash
-    proxyfinder check --status unchecked
-    proxyfinder check --older-than 7
-    ```
+**Example:**
 
-    The first command checks all unchecked proxies. The second command checks proxies that haven't been checked in the last 7 days.
+```bash
+proxyfinder find
+```
 
-3.  **`show`:** Displays proxies from the database in a paginated format on the terminal.
+This command finds new proxies.
 
-    ```bash
-    proxyfinder show [--status <status>] [--limit <num>] [--count] [--sort-by <field>] [--reverse] [--older-than <days>]
-    ```
+### 2. **`check`** - Checks the status of proxies.
 
-    - `--status <status>` (optional): Filters proxies by status. Possible values: `working`, `broken`, `unchecked`, or `all`. Defaults to `working`.
-    - `--limit <num>` (optional): Limits the number of proxies to display.
-    - `--count` (optional): Displays only the number of proxies instead of showing the full list.
-    - `--sort-by <field>` (optional): Sorts proxies by the specified field. Possible values: `latency`, `created_at`, `updated_at`. Defaults to `latency`.
-    - `--reverse` (optional): Reverses the sorting order.
+```bash
+proxyfinder check [--status <status>] [--concurrency <num>] [--older-than <days>]
+```
 
-    - `--older-than <days>` (optional): Show only the proxies that has passed that days.
+- `--status <status>` (optional): Filters the proxies to check based on their status. Possible values: `working`, `broken`, `unchecked`, or `all`. Defaults to `unchecked`.
+- `--concurrency <num>` (optional): Number of threads to use for checking. Defaults to 10.
+- `--older-than <days>` (optional): Only checks proxies that haven't been checked in the last N days. Defaults to 0 (checks all proxies).
 
-    **Examples:**
+This command verifies the functionality of the proxies in the database and updates their status (`working`/`broken`).
 
-    ```bash
-    proxyfinder show --status working --limit 20 --sort-by latency --reverse
-    proxyfinder show --status all --count
-    ```
+**Examples:**
 
-    The first command displays the 20 best working proxies ordered by latency in reverse. The second command shows the total number of proxies in the database.
+```bash
+proxyfinder check --status unchecked
+proxyfinder check --older-than 7
+```
 
-4.  **`export`:** Exports proxies to a CSV file.
+The first command checks all unchecked proxies. The second command checks proxies that haven't been checked in the last 7 days.
 
-    ```bash
-    proxyfinder export <output_file> [--all]
-    ```
+### 3. **`show`** - Displays proxies from the database in a paginated format on the terminal.
 
-    - `<output_file>` (required): The path to the output CSV file.
-    - `--all` (optional): Exports all proxies, not just working ones.
+```bash
+proxyfinder show [--status <status>] [--limit <num>] [--count] [--sort-by <field>] [--reverse] [--older-than <days>]
+```
 
-    This command exports the selected proxies to a CSV file.
+- `--status <status>` (optional): Filters proxies by status. Possible values: `working`, `broken`, `unchecked`, or `all`. Defaults to `working`.
+- `--limit <num>` (optional): Limits the number of proxies to display.
+- `--count` (optional): Displays only the number of proxies instead of listing them.
+- `--sort-by <field>` (optional): Sorts proxies by the specified field. Possible values: `latency`, `created_at`, `updated_at`. Defaults to `latency`.
+- `--reverse` (optional): Reverses the sorting order.
+- `--older-than <days>` (optional): Shows only proxies that have not been checked in the last specified number of days.
 
-    **Examples:**
+**Examples:**
 
-    ```bash
-    proxyfinder export working_proxies.csv
-    proxyfinder export all_proxies.csv --all
-    ```
+```bash
+proxyfinder show --status working --limit 20 --sort-by latency --reverse
+proxyfinder show --status all --count
+```
 
-    The first command exports only working proxies to `working_proxies.csv`. The second command exports all proxies to `all_proxies.csv`.
+The first command displays the 20 best working proxies ordered by latency in reverse order. The second command shows the total number of proxies in the database.
 
-5.  **`update`:** Finds new proxies and checks the found proxies.
+### 4. **`export`** - Exports proxies to a CSV file.
 
-    ```bash
-    proxyfinder update [--concurrency <num>]
-    ```
+```bash
+proxyfinder export <output_file> [--all]
+```
 
-    - `--concurrency <num>` (optional): Number of threads to use for searching and checking. Defaults to 10.
+- `<output_file>` (required): The path to the output CSV file.
+- `--all` (optional): Exports all proxies, not just working ones.
 
-    This command combines the `find` and `check` commands. First, it finds the new proxies and then checks these proxies.
+This command exports the selected proxies to a CSV file.
 
-    **Example:**
+**Examples:**
 
-    ```bash
-    proxyfinder update --concurrency 15
-    ```
+```bash
+proxyfinder export working_proxies.csv
+proxyfinder export all_proxies.csv --all
+```
 
-    This command finds and checks new proxies, using 15 threads for both operations.
+The first command exports only working proxies to `working_proxies.csv`. The second command exports all proxies to `all_proxies.csv`.
 
-**Tips for using the CLI:**
+### 5. **`update`** - Finds new proxies and checks them.
+
+```bash
+proxyfinder update [--concurrency <num>]
+```
+
+- `--concurrency <num>` (optional): Number of threads to use for searching and checking. Defaults to 10.
+
+This command combines the `find` and `check` commands. First, it finds new proxies and then checks their functionality.
+
+**Example:**
+
+```bash
+proxyfinder update --concurrency 15
+```
+
+This command finds and checks new proxies, using 15 threads for both operations.
+
+## Tips for Using the CLI
 
 - Use `proxyfinder help <command>` to get detailed help for a specific command.
 - Be mindful of the `--concurrency` parameter. Although the thread count is adjusted based on system resources, using too many threads may still lead to overload.

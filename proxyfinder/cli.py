@@ -1,19 +1,19 @@
 import argparse
-from datetime import datetime
+import csv
+import json
+import logging
+import os
+import signal
+import sys
+from curses import wrapper
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from peewee import fn
+
 from proxyfinder.database import Proxy
 from proxyfinder.proxyfinder import ProxyFinder
-from proxyfinder.utils import ProxyDisplay
-from datetime import timedelta
-import logging
-from pathlib import Path
-import csv
-import signal
-from curses import wrapper
-import sys
-from proxyfinder.utils import signal_handler
-from peewee import fn
-import os
-import json
+from proxyfinder.utils import ProxyDisplay, signal_handler
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,7 @@ def show_proxies(
     wrapper(func)
 
 
-def ckeck_proxies(concurrency, status="working", older_than=0):
+def ckeck_proxies(concurrency, status="unchecked", older_than=0):
     with ProxyFinder(concurrency=concurrency) as pf:
 
         if status == "working":
@@ -283,7 +283,7 @@ def export_proxies(
 
 def update_proxies(concurrency):
     find_proxies(concurrency=concurrency)
-    ckeck_proxies(concurrency=concurrency)
+    ckeck_proxies(concurrency=concurrency, status="unchecked")
 
 
 def main():
