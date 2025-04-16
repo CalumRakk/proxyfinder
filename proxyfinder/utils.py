@@ -1,13 +1,20 @@
+import curses
 import logging
 import os
 import threading
+from enum import Enum
 from pathlib import Path
-import curses
-
 
 PROXIES_OUT_DIR = Path(os.getenv("APPDATA") or Path.home() / ".config") / "proxyfinder"
 PROXIES_OUT_DIR.mkdir(parents=True, exist_ok=True)
 STOP_FLAG = threading.Event()
+
+
+class ProxyStatus(Enum):
+    WORKING = "working"
+    BROKEN = "broken"
+    UNCHECKED = "unchecked"
+    ALL = "all"
 
 
 def handler_stream(formatter) -> "logging.StreamHandler":

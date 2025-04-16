@@ -13,7 +13,7 @@ from peewee import fn
 
 from proxyfinder.database import Proxy
 from proxyfinder.proxyfinder import ProxyFinder
-from proxyfinder.utils import ProxyDisplay, signal_handler
+from proxyfinder.utils import ProxyDisplay, ProxyStatus, signal_handler
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,13 @@ def config_args():
     check_parser = subparsers.add_parser("check", help="Check the status of proxies.")
     check_parser.add_argument(
         "--status",
-        choices=["working", "broken", "unchecked", "all"],
-        default="unchecked",
+        choices=[
+            ProxyStatus.WORKING.value,
+            ProxyStatus.BROKEN.value,
+            ProxyStatus.UNCHECKED.value,
+            ProxyStatus.ALL.value,
+        ],
+        default=ProxyStatus.UNCHECKED.value,
         help="Filter proxies by status.",
     )
     check_parser.add_argument(
@@ -52,8 +57,13 @@ def config_args():
     show_parser = subparsers.add_parser("show", help="Display stored proxies.")
     show_parser.add_argument(
         "--status",
-        choices=["working", "broken", "unchecked", "all"],
-        default="working",
+        choices=[
+            ProxyStatus.WORKING.value,
+            ProxyStatus.BROKEN.value,
+            ProxyStatus.UNCHECKED.value,
+            ProxyStatus.ALL.value,
+        ],
+        default=ProxyStatus.WORKING.value,
         help="Filter proxies by status.",
     )
     show_parser.add_argument(
@@ -84,8 +94,13 @@ def config_args():
     export_parser.add_argument("output", type=str, help="Output file.")
     export_parser.add_argument(
         "--status",
-        choices=["working", "broken", "unchecked", "all"],
-        default="working",
+        choices=[
+            ProxyStatus.WORKING.value,
+            ProxyStatus.BROKEN.value,
+            ProxyStatus.UNCHECKED.value,
+            ProxyStatus.ALL.value,
+        ],
+        default=ProxyStatus.WORKING.value,
         help="Filter proxies by status.",
     )
     export_parser.add_argument(
@@ -110,29 +125,37 @@ def config_args():
         "--concurrency", type=int, default=10, help="Number of threads for updating."
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(["check", "--status", "working"])
     if hasattr(args, "concurrency"):
         concurrency = os.cpu_count() or 2
         concurrency += 2
         max_concurrency = min(concurrency, args.concurrency)
         setattr(args, "concurrency", max_concurrency)
+
+    if hasattr(args, "status"):
+        setattr(args, "status", ProxyStatus(args.status))
     return args
 
 
 def show_proxies(
-    status: str, limit=None, count=False, sort_by="latency", reverse=False, older_than=0
+    status: ProxyStatus,
+    limit=None,
+    count=False,
+    sort_by="latency",
+    reverse=False,
+    older_than=0,
 ):
-    if status == "working":
+    if status == ProxyStatus.WORKING:
         proxies = Proxy.select().where(
             Proxy.is_working == True, Proxy.is_checked == True
         )
-    elif status == "broken":
+    elif status == ProxyStatus.BROKEN:
         proxies = Proxy.select().where(
             Proxy.is_working == False, Proxy.is_checked == True
         )
-    elif status == "unchecked":
+    elif status == ProxyStatus.UNCHECKED:
         proxies = Proxy.select().where(Proxy.is_checked == False)
-    elif status == "all":
+    elif status == ProxyStatus.ALL:
         proxies = Proxy.select()
     else:
         raise ValueError(f"Invalid status: {status}")
@@ -140,7 +163,7 @@ def show_proxies(
     if limit:
         proxies = proxies.limit(limit)
 
-    if older_than > 0 and status != "all":
+    if older_than > 0 and status != ProxyStatus.ALL:
         a_day_ago = datetime.now() - timedelta(days=older_than)
         proxies = proxies.where(Proxy.updated_at > a_day_ago)  # type: ignore
 
@@ -159,23 +182,23 @@ def show_proxies(
     wrapper(func)
 
 
-def ckeck_proxies(concurrency, status="unchecked", older_than=0):
+def ckeck_proxies(concurrency, status=ProxyStatus.UNCHECKED, older_than=0):
     with ProxyFinder(concurrency=concurrency) as pf:
 
-        if status == "working":
+        if status == ProxyStatus.WORKING:
             proxies = Proxy.select().where(
                 Proxy.is_working == True,
                 Proxy.is_checked == True,
             )
-        elif status == "broken":
+        elif status == ProxyStatus.BROKEN:
             proxies = Proxy.select().where(
                 Proxy.is_working == False,
                 Proxy.is_checked == True,
                 Proxy.error.contains("connect timeout"),
             )
-        elif status == "unchecked":
+        elif status == ProxyStatus.UNCHECKED:
             proxies = Proxy.select().where(Proxy.is_checked == False)
-        elif status == "all":
+        elif status == ProxyStatus.ALL:
             proxies = Proxy.select()
         else:
             raise ValueError(f"Invalid status: {status}")
@@ -203,24 +226,24 @@ def find_proxies(concurrency):
 
 def export_proxies(
     output,
-    status="working",
+    status=ProxyStatus.WORKING,
     limit=None,
     older_than=0,
     sort_by="latency",
     reverse=False,
 ):
     output = Path(output) if isinstance(output, str) else output
-    if status == "working":
+    if status == ProxyStatus.WORKING:
         proxies = Proxy.select().where(
             Proxy.is_working == True, Proxy.is_checked == True
         )
-    elif status == "broken":
+    elif status == ProxyStatus.BROKEN:
         proxies = Proxy.select().where(
             Proxy.is_working == False, Proxy.is_checked == True
         )
-    elif status == "unchecked":
+    elif status == ProxyStatus.UNCHECKED:
         proxies = Proxy.select().where(Proxy.is_checked == False)
-    elif status == "all":
+    elif status == ProxyStatus.ALL:
         proxies = Proxy.select()
     else:
         raise ValueError(f"Invalid status: {status}")
@@ -228,7 +251,7 @@ def export_proxies(
     if limit:
         proxies = proxies.limit(limit)
 
-    if older_than > 0 and status != "all":
+    if older_than > 0 and status != ProxyStatus.ALL:
         a_day_ago = datetime.now() - timedelta(days=older_than)
         proxies = proxies.where(Proxy.updated_at > a_day_ago)  # type: ignore
 
@@ -285,7 +308,7 @@ def export_proxies(
 
 def update_proxies(concurrency):
     find_proxies(concurrency=concurrency)
-    ckeck_proxies(concurrency=concurrency, status="unchecked")
+    ckeck_proxies(concurrency=concurrency, status=ProxyStatus.UNCHECKED)
 
 
 def main():
