@@ -169,7 +169,9 @@ def ckeck_proxies(concurrency, status="unchecked", older_than=0):
             )
         elif status == "broken":
             proxies = Proxy.select().where(
-                Proxy.is_working == False, Proxy.is_checked == True
+                Proxy.is_working == False,
+                Proxy.is_checked == True,
+                Proxy.error.contains("connect timeout"),
             )
         elif status == "unchecked":
             proxies = Proxy.select().where(Proxy.is_checked == False)
